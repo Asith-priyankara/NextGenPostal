@@ -16,11 +16,13 @@ import jakarta.mail.MessagingException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Random;
 
 @Service
@@ -31,16 +33,18 @@ public class AuthenticationService {
     private final CustomerRepository customerRepository;
     private final PostOfficeRepository postOfficeRepository;
     private final ActivationCodeRepository activationCodeRepository;
+    private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final JwtService jwtService;
     private final Random random;
 
 
     @Transactional
     public ResponseEntity<?> registerCustomer(CustomerRegistrationRequest request) throws MessagingException {
-        try{
+        try {
             UserEntity user = UserEntity.builder()
                     .email(request.email())
-                    .password(request.password())
+                    .password(passwordEncoder.encode(request.password()))
                     .role(Auth.Role.CUSTOMER)
                     .enabled(false)
                     .build();
@@ -56,7 +60,7 @@ public class AuthenticationService {
             customerRepository.save(customer);
             sendValidationEmail(user);
             return ResponseEntity.status(200).body("");
-        } catch (Exception e){
+        } catch (Exception e) {
             throw e;
         }
     }
@@ -66,7 +70,7 @@ public class AuthenticationService {
         try {
             UserEntity user = UserEntity.builder()
                     .email(request.email())
-                    .password(request.password())
+                    .password(passwordEncoder.encode(request.password()))
                     .role(Auth.Role.OFFICE)
                     .enabled(false)
                     .build();
@@ -81,6 +85,7 @@ public class AuthenticationService {
             userRepository.save(user);
             postOfficeRepository.save(office);
             sendValidationEmail(user);
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             return ResponseEntity.status(200).body("");
         } catch (Exception e) {
             throw e;
@@ -89,12 +94,12 @@ public class AuthenticationService {
 
     private void sendValidationEmail(UserEntity user) throws MessagingException {
         String activationCode = sendEmailWithActivationCode(user);
-        saveActivationCode(activationCode,user);
+        saveActivationCode(activationCode, user);
     }
 
     private void reSendValidationEmail(UserEntity user) throws MessagingException {
         String activationCode = sendEmailWithActivationCode(user);
-        updateActivationCode(activationCode,user);
+        updateActivationCode(activationCode, user);
     }
 
     private String sendEmailWithActivationCode(UserEntity user) throws MessagingException {
@@ -119,10 +124,11 @@ public class AuthenticationService {
         return activationCode;
     }
 
-    private String generateRandomCode (Integer upperLimit) {
+    private String generateRandomCode(Integer upperLimit) {
         String randomNumber = String.valueOf(random.nextInt(upperLimit));
         return randomNumber;
     }
+
     private void saveActivationCode(String code, UserEntity user) {
         var activationCode = ActivationCodeEntity.builder()
                 .activationCode(code)
@@ -155,8 +161,9 @@ public class AuthenticationService {
         }
         user.setEnabled(true);
         userRepository.save(user);
+        String jwtToken = jwtService.generateToken(user);
 
-        return ResponseEntity.status(200).body("Account activate");
+        return ResponseEntity.status(200).body(jwtToken);
     }
 
 }
