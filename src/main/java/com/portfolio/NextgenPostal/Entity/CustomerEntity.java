@@ -13,11 +13,18 @@ import lombok.*;
 public class CustomerEntity {
     @Id
     @GeneratedValue
-    private Integer id;
+    private Integer customerId;
+
     private String firstName;
+
     private String lastName;
-    @Column(unique = true)
-    private String email;
+
     private String contactNumber;
+
     private String address;
+
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "user_id", referencedColumnName = "userId")
+    private UserEntity user;
+
 }

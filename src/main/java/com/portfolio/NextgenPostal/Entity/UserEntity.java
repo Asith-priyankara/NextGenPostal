@@ -1,7 +1,9 @@
 package com.portfolio.NextgenPostal.Entity;
 
+import com.portfolio.NextgenPostal.Enum.Auth;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import org.springframework.security.core.GrantedAuthority;
@@ -21,15 +23,23 @@ import java.util.Collection;
 public class UserEntity implements UserDetails {
     @Id
     @GeneratedValue
-    private Integer id;
+    private Integer userId;
+
     @Column(unique = true)
     private String email;
+
     private String password;
-    private int role;
+
     private boolean enabled;
+
+    @Enumerated(EnumType.STRING)
+    private Auth.Role role;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
+    @CreationTimestamp
     private LocalDateTime createdDate;
+
     private LocalDateTime lastLoginTime;
 
     @Override

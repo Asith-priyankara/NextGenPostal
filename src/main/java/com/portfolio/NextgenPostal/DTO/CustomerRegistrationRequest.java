@@ -1,5 +1,8 @@
 package com.portfolio.NextgenPostal.DTO;
 
+import com.portfolio.NextgenPostal.Enum.Auth;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.validation.constraints.*;
 
 public record CustomerRegistrationRequest(
@@ -22,6 +25,7 @@ public record CustomerRegistrationRequest(
         @NotBlank(message = "Password is mandatory")
         @Size(min = 8, message = "Password should be 8 characters long minimum")
         String password,
-        Integer role
+        @Enumerated(EnumType.STRING)
+        Auth.Role role
 ) {
 }

@@ -7,6 +7,7 @@ import com.portfolio.NextgenPostal.Entity.ActivationCodeEntity;
 import com.portfolio.NextgenPostal.Entity.CustomerEntity;
 import com.portfolio.NextgenPostal.Entity.PostOfficeEntity;
 import com.portfolio.NextgenPostal.Entity.UserEntity;
+import com.portfolio.NextgenPostal.Enum.Auth;
 import com.portfolio.NextgenPostal.Repository.ActivationCodeRepository;
 import com.portfolio.NextgenPostal.Repository.CustomerRepository;
 import com.portfolio.NextgenPostal.Repository.PostOfficeRepository;
@@ -36,93 +37,104 @@ public class AuthenticationService {
 
     @Transactional
     public ResponseEntity<?> registerCustomer(CustomerRegistrationRequest request) throws MessagingException {
-        if (request.role() == 3) {
-            try{
-                var user = UserEntity.builder()
-                        .email(request.email())
-                        .password(request.password())
-                        .role(3)
-                        .enabled(false)
-                        .createdDate(LocalDateTime.now())
-                        .build();
-                var customer = CustomerEntity.builder()
-                        .firstName(request.firstName())
-                        .lastName(request.lastName())
-                        .email(request.email())
-                        .contactNumber(request.contactNumber())
-                        .address(request.address())
-                        .build();
+        try{
+            UserEntity user = UserEntity.builder()
+                    .email(request.email())
+                    .password(request.password())
+                    .role(Auth.Role.CUSTOMER)
+                    .enabled(false)
+                    .build();
+            CustomerEntity customer = CustomerEntity.builder()
+                    .firstName(request.firstName())
+                    .lastName(request.lastName())
+                    .contactNumber(request.contactNumber())
+                    .address(request.address())
+                    .user(user)
+                    .build();
 
-                userRepository.save(user);
-                customerRepository.save(customer);
-                sendValidationEmail(user.getEmail(), customer.getFirstName()+customer.getLastName());
-                return ResponseEntity.status(200).body("");
-            } catch (Exception e){
-                throw e;
-            }
-        } else {
-            return ResponseEntity.status(300).body("Invalid");
+            userRepository.save(user);
+            customerRepository.save(customer);
+            sendValidationEmail(user);
+            return ResponseEntity.status(200).body("");
+        } catch (Exception e){
+            throw e;
         }
     }
 
     @Transactional
     public ResponseEntity<?> registerOffice(OfficeRegistrationRequest request) throws MessagingException {
-        if (request.role() == 2) {
-            try {
-                var user = UserEntity.builder()
-                        .email(request.email())
-                        .password(request.password())
-                        .role(2)
-                        .enabled(false)
-                        .build();
-                var office = PostOfficeEntity.builder()
-                        .postOfficeName(request.postOfficeName())
-                        .district(request.district())
-                        .email(request.email())
-                        .telephoneNumber(request.telephoneNumber())
-                        .address(request.address())
-                        .build();
+        try {
+            UserEntity user = UserEntity.builder()
+                    .email(request.email())
+                    .password(request.password())
+                    .role(Auth.Role.OFFICE)
+                    .enabled(false)
+                    .build();
+            PostOfficeEntity office = PostOfficeEntity.builder()
+                    .postOfficeName(request.postOfficeName())
+                    .district(request.district())
+                    .telephoneNumber(request.telephoneNumber())
+                    .address(request.address())
+                    .user(user)
+                    .build();
 
-                userRepository.save(user);
-                postOfficeRepository.save(office);
-                sendValidationEmail(user.getEmail(), office.getPostOfficeName());
-                return ResponseEntity.status(200).body("");
-            } catch (Exception e) {
-                throw e;
-            }
-        } else {
-            return ResponseEntity.status(300).body("Invalid");
+            userRepository.save(user);
+            postOfficeRepository.save(office);
+            sendValidationEmail(user);
+            return ResponseEntity.status(200).body("");
+        } catch (Exception e) {
+            throw e;
         }
     }
 
-    private void sendValidationEmail(String email, String username) throws MessagingException {
+    private void sendValidationEmail(UserEntity user) throws MessagingException {
+        String activationCode = sendEmailWithActivationCode(user);
+        saveActivationCode(activationCode,user);
+    }
+
+    private void reSendValidationEmail(UserEntity user) throws MessagingException {
+        String activationCode = sendEmailWithActivationCode(user);
+        updateActivationCode(activationCode,user);
+    }
+
+    private String sendEmailWithActivationCode(UserEntity user) throws MessagingException {
         var activationCode = generateRandomCode(10000);
-        saveActivationCode(activationCode,email);
+        String greetingName = " ";
+        String email = user.getEmail();
+        Auth.Role role = user.getRole();
+        if (role == Auth.Role.CUSTOMER) {
+            CustomerEntity customer = customerRepository.findByUser(user).orElseThrow(() -> new RuntimeException("Invalid"));
+            greetingName = customer.getFirstName() + " " + customer.getLastName();
+        } else if (role == Auth.Role.OFFICE) {
+            PostOfficeEntity office = postOfficeRepository.findByUser(user).orElseThrow(() -> new RuntimeException("Invalid"));
+            greetingName = office.getPostOfficeName() + " Post office";
+        }
         emailService.sendEmail(
                 email,
-                username,
+                greetingName,
                 "activate_account",
                 activationCode,
                 "Account Activation"
         );
+        return activationCode;
     }
 
     private String generateRandomCode (Integer upperLimit) {
         String randomNumber = String.valueOf(random.nextInt(upperLimit));
         return randomNumber;
     }
-    private void saveActivationCode(String code, String email) {
+    private void saveActivationCode(String code, UserEntity user) {
         var activationCode = ActivationCodeEntity.builder()
                 .activationCode(code)
-                .email(email)
                 .expiredAt(LocalDateTime.now().plusMinutes(10))
+                .user(user)
                 .build();
 
         activationCodeRepository.save(activationCode);
     }
 
-    private void updateActivationCode(String code, String email) {
-        ActivationCodeEntity activationCode = activationCodeRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("Invalid"));
+    private void updateActivationCode(String code, UserEntity user) {
+        ActivationCodeEntity activationCode = activationCodeRepository.findByUser(user).orElseThrow(() -> new RuntimeException("Invalid"));
         activationCode.setActivationCode(code);
         activationCode.setExpiredAt(LocalDateTime.now().plusMinutes(10));
 
@@ -132,43 +144,19 @@ public class AuthenticationService {
     @Transactional
     public ResponseEntity<?> activateAccount(ActivateAccountRequest activateAccountRequest) throws MessagingException {
         String email = activateAccountRequest.email();
-        ActivationCodeEntity activationCode = activationCodeRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("Invalid"));
+        UserEntity user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("Invalid"));
+        ActivationCodeEntity activationCode = activationCodeRepository.findByUser(user).orElseThrow(() -> new RuntimeException("Invalid"));
         if (!Objects.equals(activationCode.getActivationCode(), activateAccountRequest.activationCode())) {
             return ResponseEntity.status(300).body("Activation code incorrect");
         }
         if (LocalDateTime.now().isAfter(activationCode.getExpiredAt())) {
-            reSendValidationEmail(activationCode.getEmail());
+            reSendValidationEmail(user);
             return ResponseEntity.status(300).body("Re send email");
         }
-        UserEntity user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("Invalid"));
         user.setEnabled(true);
         userRepository.save(user);
 
         return ResponseEntity.status(200).body("Account activate");
-
     }
 
-    @Transactional
-    protected void reSendValidationEmail(String email) throws MessagingException {
-        UserEntity user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("Invalid"));
-        String username = " ";
-        if (user.getRole() == 3){
-            CustomerEntity customer = customerRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("Invalid"));
-            username= customer.getFirstName()+" "+customer.getLastName();
-        } else if (user.getRole() == 2) {
-            PostOfficeEntity postOffice = postOfficeRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("Invalid"));
-            username = postOffice.getPostOfficeName();
-        }
-        var activationCode = generateRandomCode(10000);
-        updateActivationCode(activationCode,email);
-        emailService.sendEmail(
-                email,
-                username,
-                "activate_account",
-                activationCode,
-                "Account Activation"
-        );
-
-
-    }
 }

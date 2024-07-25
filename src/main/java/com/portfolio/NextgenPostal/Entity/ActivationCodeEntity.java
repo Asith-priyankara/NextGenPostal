@@ -17,9 +17,13 @@ import java.time.LocalDateTime;
 public class ActivationCodeEntity {
     @Id
     @GeneratedValue
-    private Integer id;
-    @Column(unique = true)
-    private String email;
+    private Integer activationCodeId;
+
     private String activationCode;
+
     private LocalDateTime expiredAt;
+
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "user_id", referencedColumnName = "userId")
+    private UserEntity user;
 }

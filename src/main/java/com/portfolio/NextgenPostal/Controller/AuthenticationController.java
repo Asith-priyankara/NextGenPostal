@@ -19,14 +19,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthenticationController {
     private final AuthenticationService authenticationService;
 
-    @PostMapping("/registerCustomer")
+    @PostMapping("/register-customer")
     public ResponseEntity<?> registerCustomer(
             @RequestBody @Valid CustomerRegistrationRequest request
     ) throws MessagingException {
         return authenticationService.registerCustomer(request);
     }
 
-    @PostMapping("/registerOffice")
+    @PostMapping("/register-office")
     public ResponseEntity<?> registerOffice(
             @RequestBody @Valid OfficeRegistrationRequest request
     ) throws MessagingException {

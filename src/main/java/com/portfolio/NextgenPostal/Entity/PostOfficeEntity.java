@@ -10,14 +10,20 @@ import lombok.*;
 @NoArgsConstructor
 @Entity
 @Table(name = "officer")
-public class PostOfficeEntity {
+public class PostOfficeEntity  {
     @Id
     @GeneratedValue
-    private Integer id;
+    private Integer officeId;
+
     private String postOfficeName;
+
     private String district;
-    @Column(unique = true)
-    private String email;
+
     private String telephoneNumber;
+
     private String address;
+
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "user_id", referencedColumnName = "userId")
+    private UserEntity user;
 }
