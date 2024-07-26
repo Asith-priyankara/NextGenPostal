@@ -1,6 +1,7 @@
 package com.portfolio.NextgenPostal.service;
 
 import com.portfolio.NextgenPostal.DTO.ActivateAccountRequest;
+import com.portfolio.NextgenPostal.DTO.AuthenticationRequest;
 import com.portfolio.NextgenPostal.DTO.CustomerRegistrationRequest;
 import com.portfolio.NextgenPostal.DTO.OfficeRegistrationRequest;
 import com.portfolio.NextgenPostal.Entity.*;
@@ -10,6 +11,8 @@ import jakarta.mail.MessagingException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,6 +34,7 @@ public class AuthenticationService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final JwtService jwtService;
+    private final AuthenticationManager authenticationManager;
     private final Random random;
 
 
@@ -182,4 +186,18 @@ public class AuthenticationService {
         tokenRepository.saveAll(validUserTokens);
     }
 
+    public ResponseEntity<?> authenticate(AuthenticationRequest request) {
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        request.email(),
+                        request.password()
+                )
+        );
+        var user = userRepository.findByEmail(request.email()).orElseThrow();
+        var jwtToken = jwtService.generateToken(user);
+        revokeAllUserTokens(user);
+        saveUserToken(user,jwtToken);
+        return ResponseEntity.status(200).body(jwtToken);
+
+    }
 }

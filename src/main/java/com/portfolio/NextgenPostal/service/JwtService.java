@@ -1,10 +1,14 @@
 package com.portfolio.NextgenPostal.service;
 
+import com.portfolio.NextgenPostal.Entity.TokenEntity;
+import com.portfolio.NextgenPostal.Repository.TokenRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -17,13 +21,17 @@ import java.util.Objects;
 import java.util.function.Function;
 
 @Service
+@AllArgsConstructor
+
 public class JwtService {
 
     @Value("${application.security.jwt.secret-key}")
-    private String SECRET_KEY;
+    private static String SECRET_KEY;
 
     @Value("${application.security.jwt.expiration}")
-    private long jwtExpiration;
+    private static long  jwtExpiration;
+
+    private final TokenRepository tokenRepository;
 
     public String generateToken(UserDetails userDetails) {
         return buildToken(new HashMap<>(), userDetails, jwtExpiration);
@@ -77,6 +85,14 @@ public class JwtService {
 
     private boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date(System.currentTimeMillis()));
+    }
+
+    public boolean isTokenRevokedOrExpired(String token) {
+        var storedToken = tokenRepository.findByToken(token).orElse(null);
+        if (storedToken != null) {
+            return storedToken.isExpired() || storedToken.isRevoked();
+        }
+        return true;
     }
 
 }

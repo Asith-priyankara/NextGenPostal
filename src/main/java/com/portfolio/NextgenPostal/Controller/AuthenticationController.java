@@ -1,6 +1,7 @@
 package com.portfolio.NextgenPostal.Controller;
 
 import com.portfolio.NextgenPostal.DTO.ActivateAccountRequest;
+import com.portfolio.NextgenPostal.DTO.AuthenticationRequest;
 import com.portfolio.NextgenPostal.DTO.CustomerRegistrationRequest;
 import com.portfolio.NextgenPostal.DTO.OfficeRegistrationRequest;
 import com.portfolio.NextgenPostal.service.AuthenticationService;
@@ -38,5 +39,12 @@ public class AuthenticationController {
             @RequestBody @Valid ActivateAccountRequest activateAccountRequest
             ) throws MessagingException {
         return authenticationService.activateAccount(activateAccountRequest);
+    }
+
+    @PostMapping("/authenticate")
+    public ResponseEntity<?> authenticate(
+            @RequestBody @Valid AuthenticationRequest authenticationRequest
+            ) {
+        return authenticationService.authenticate(authenticationRequest);
     }
 }
