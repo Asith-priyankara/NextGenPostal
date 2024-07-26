@@ -3,15 +3,9 @@ package com.portfolio.NextgenPostal.service;
 import com.portfolio.NextgenPostal.DTO.ActivateAccountRequest;
 import com.portfolio.NextgenPostal.DTO.CustomerRegistrationRequest;
 import com.portfolio.NextgenPostal.DTO.OfficeRegistrationRequest;
-import com.portfolio.NextgenPostal.Entity.ActivationCodeEntity;
-import com.portfolio.NextgenPostal.Entity.CustomerEntity;
-import com.portfolio.NextgenPostal.Entity.PostOfficeEntity;
-import com.portfolio.NextgenPostal.Entity.UserEntity;
+import com.portfolio.NextgenPostal.Entity.*;
 import com.portfolio.NextgenPostal.Enum.Auth;
-import com.portfolio.NextgenPostal.Repository.ActivationCodeRepository;
-import com.portfolio.NextgenPostal.Repository.CustomerRepository;
-import com.portfolio.NextgenPostal.Repository.PostOfficeRepository;
-import com.portfolio.NextgenPostal.Repository.UserRepository;
+import com.portfolio.NextgenPostal.Repository.*;
 import jakarta.mail.MessagingException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +27,7 @@ public class AuthenticationService {
     private final CustomerRepository customerRepository;
     private final PostOfficeRepository postOfficeRepository;
     private final ActivationCodeRepository activationCodeRepository;
+    private final TokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final JwtService jwtService;
@@ -162,8 +157,29 @@ public class AuthenticationService {
         user.setEnabled(true);
         userRepository.save(user);
         String jwtToken = jwtService.generateToken(user);
-
+        saveUserToken(user,jwtToken);
         return ResponseEntity.status(200).body(jwtToken);
+    }
+
+    private void saveUserToken(UserEntity user, String jwtToken) {
+        TokenEntity token = TokenEntity.builder()
+                .user(user)
+                .token(jwtToken)
+                .tokenType(Auth.TokenType.BEARER)
+                .expired(false)
+                .revoked(false)
+                .build();
+        tokenRepository.save(token);
+    }
+
+    private void revokeAllUserTokens(UserEntity user) {
+        var validUserTokens = tokenRepository.findAllValidTokenByUser(user.getUserId());
+        if (validUserTokens.isEmpty()) { return;}
+        validUserTokens.forEach(token -> {
+            token.setExpired(true);
+            token.setRevoked(true);
+        });
+        tokenRepository.saveAll(validUserTokens);
     }
 
 }

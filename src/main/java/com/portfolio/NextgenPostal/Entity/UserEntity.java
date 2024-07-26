@@ -11,6 +11,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.List;
 
 @Getter
 @Setter
@@ -34,6 +35,9 @@ public class UserEntity implements UserDetails {
 
     @Enumerated(EnumType.STRING)
     private Auth.Role role;
+
+    @OneToMany(mappedBy = "user")
+    private List<TokenEntity> tokens;
 
     @CreatedDate
     @Column(nullable = false, updatable = false)

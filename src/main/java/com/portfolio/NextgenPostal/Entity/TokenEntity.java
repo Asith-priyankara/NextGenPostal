@@ -19,7 +19,7 @@ public class TokenEntity {
     private Integer id;
 
     @Column(unique = true)
-    private String toekn;
+    private String token;
 
     @Enumerated(EnumType.STRING)
     private Auth.TokenType tokenType = Auth.TokenType.BEARER;
