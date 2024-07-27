@@ -27,7 +27,8 @@ public class TokenEntity {
     private boolean revoked;
 
     private boolean expired;
-    @ManyToOne
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", referencedColumnName = "userId")
     private UserEntity user;
 }

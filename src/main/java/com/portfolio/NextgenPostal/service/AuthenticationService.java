@@ -1,15 +1,16 @@
 package com.portfolio.NextgenPostal.service;
 
-import com.portfolio.NextgenPostal.DTO.ActivateAccountRequest;
-import com.portfolio.NextgenPostal.DTO.AuthenticationRequest;
-import com.portfolio.NextgenPostal.DTO.CustomerRegistrationRequest;
-import com.portfolio.NextgenPostal.DTO.OfficeRegistrationRequest;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.portfolio.NextgenPostal.DTO.*;
 import com.portfolio.NextgenPostal.Entity.*;
 import com.portfolio.NextgenPostal.Enum.Auth;
 import com.portfolio.NextgenPostal.Repository.*;
 import jakarta.mail.MessagingException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -18,6 +19,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.Random;
@@ -161,6 +163,7 @@ public class AuthenticationService {
         user.setEnabled(true);
         userRepository.save(user);
         String jwtToken = jwtService.generateToken(user);
+        String refreshToken = jwtService.generateRefreshToken(user);
         saveUserToken(user,jwtToken);
         return ResponseEntity.status(200).body(jwtToken);
     }
@@ -195,9 +198,36 @@ public class AuthenticationService {
         );
         var user = userRepository.findByEmail(request.email()).orElseThrow();
         var jwtToken = jwtService.generateToken(user);
+        String refreshToken = jwtService.generateRefreshToken(user);
         revokeAllUserTokens(user);
         saveUserToken(user,jwtToken);
         return ResponseEntity.status(200).body(jwtToken);
 
+    }
+
+    public void refreshToken(
+            HttpServletRequest request,
+            HttpServletResponse response) throws IOException {
+        final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        final String refreshToken;
+        final String userEmail;
+        if (authHeader == null || authHeader.startsWith("Bearer ")) {
+            return;
+        }
+        refreshToken = authHeader.substring(7);
+        userEmail = jwtService.extractUsername(refreshToken);
+        if (userEmail != null) {
+            var user = userRepository.findByEmail(userEmail).orElseThrow();
+            if (jwtService.isValidRefreshToken(refreshToken, user)) {
+                var accessToken = jwtService.generateToken(user);
+                revokeAllUserTokens(user);
+                saveUserToken(user,accessToken);
+                var authResponse = new AuthenticationResponse(
+                        accessToken,
+                        refreshToken
+                );
+                new ObjectMapper().writeValue(response.getOutputStream(), authResponse);
+            }
+        }
     }
 }

@@ -1,6 +1,7 @@
 package com.portfolio.NextgenPostal.DTO;
 
 public record AuthenticationResponse(
-        String token
+        String accessToken,
+        String refreshToken
 ) {
 }
